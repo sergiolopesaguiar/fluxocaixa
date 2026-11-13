@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FluxoCaixa · Entrar</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #6b7785;
+      --primary: #0f766e;
+      --primary-dark: #0b5d57;
+      --border: #d9dee3;
+      --error-bg: #fdecec;
+      --error: #b42318;
+      --ok-bg: #e7f6ee;
+      --ok: #147a44;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: var(--text);
+      padding: 16px;
+    }
+    .card {
+      width: 100%;
+      max-width: 380px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px 28px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+    .brand { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+    .brand span { color: var(--primary); }
+    .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+    input {
+      width: 100%;
+      padding: 11px 12px;
+      font-size: 15px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      outline: none;
+    }
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15); }
+    button.primary {
+      width: 100%;
+      margin-top: 22px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--primary);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button.primary:hover { background: var(--primary-dark); }
+    button.primary:disabled { opacity: 0.6; cursor: wait; }
+    .links { display: flex; justify-content: space-between; margin-top: 16px; font-size: 13px; }
+    .links a { color: var(--primary); text-decoration: none; cursor: pointer; }
+    .links a:hover { text-decoration: underline; }
+    .msg { display: none; margin-top: 16px; padding: 10px 12px; border-radius: 8px; font-size: 13px; }
+    .msg.error { display: block; background: var(--error-bg); color: var(--error); }
+    .msg.ok { display: block; background: var(--ok-bg); color: var(--ok); }
+    .hidden { display: none; }
+    .welcome p { color: var(--muted); font-size: 14px; }
+    .welcome strong { color: var(--text); }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1 class="brand">Fluxo<span>Caixa</span></h1>
+    <p class="subtitle" id="subtitle">Entre para acessar seu controle financeiro.</p>
+
+    <!-- Formulário de login / cadastro / recuperação -->
+    <form id="authForm" novalidate>
+      <div id="emailGroup">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" autocomplete="email" required>
+      </div>
+      <div id="passwordGroup">
+        <label for="password">Senha</label>
+        <input type="password" id="password" autocomplete="current-password" minlength="8" required>
+      </div>
+      <button type="submit" class="primary" id="submitBtn">Entrar</button>
+      <div class="links">
+        <a id="toggleSignup">Primeiro acesso</a>
+        <a id="toggleReset">Esqueci a senha</a>
+      </div>
+    </form>
+
+    <!-- Área logada (provisória, até o painel ser criado) -->
+    <section id="welcome" class="welcome hidden">
+      <p>Conectado como <strong id="userEmail"></strong>.</p>
+      <p>O painel de receitas, despesas e empréstimos será construído aqui.</p>
+      <button class="primary" id="logoutBtn">Sair</button>
+    </section>
+
+    <div id="msg" class="msg"></div>
+  </main>
+
+  <script>
+    // Chave publicável: pode ficar no código. A proteção dos dados vem do login + RLS no banco.
+    const SUPABASE_URL = 'https://egozlthyhwijtzssbogh.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_ZSivqasHctyPiJGX6qGO-A_pDA3xcpR';
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const $ = (id) => document.getElementById(id);
+    const form = $('authForm');
+    const msg = $('msg');
+    let mode = 'login'; // login | signup | reset | newpass
+
+    const texts = {
+      login:   { sub: 'Entre para acessar seu controle financeiro.', btn: 'Entrar' },
+      signup:  { sub: 'Crie seu acesso. Use uma senha com pelo menos 8 caracteres.', btn: 'Criar acesso' },
+      reset:   { sub: 'Informe seu e-mail para receber o link de nova senha.', btn: 'Enviar link' },
+      newpass: { sub: 'Defina sua nova senha.', btn: 'Salvar nova senha' }
+    };
+
+    function showMsg(text, type) {
+      msg.textContent = text;
+      msg.className = 'msg ' + type;
+    }
+    function clearMsg() { msg.className = 'msg'; msg.textContent = ''; }
+
+    function setMode(newMode) {
+      mode = newMode;
+      clearMsg();
+      $('subtitle').textContent = texts[mode].sub;
+      $('submitBtn').textContent = texts[mode].btn;
+      $('emailGroup').classList.toggle('hidden', mode === 'newpass');
+      $('passwordGroup').classList.toggle('hidden', mode === 'reset');
+      $('password').autocomplete = (mode === 'login') ? 'current-password' : 'new-password';
+      $('toggleSignup').textContent = mode === 'login' ? 'Primeiro acesso' : 'Voltar ao login';
+      $('toggleReset').classList.toggle('hidden', mode !== 'login');
+    }
+
+    function showLoggedIn(user) {
+      form.classList.add('hidden');
+      $('welcome').classList.remove('hidden');
+      $('userEmail').textContent = user.email;
+      $('subtitle').textContent = 'Bem-vindo.';
+    }
+    function showLoggedOut() {
+      form.classList.remove('hidden');
+      $('welcome').classList.add('hidden');
+      setMode('login');
+    }
+
+    function traduzErro(e) {
+      const m = (e && e.message || '').toLowerCase();
+      if (m.includes('invalid login')) return 'E-mail ou senha incorretos.';
+      if (m.includes('email not confirmed')) return 'Confirme seu e-mail pelo link enviado antes de entrar.';
+      if (m.includes('already registered')) return 'Este e-mail já tem acesso. Use "Esqueci a senha" se precisar.';
+      if (m.includes('signups not allowed') || m.includes('signup is disabled')) return 'Novos cadastros estão desativados.';
+      if (m.includes('password')) return 'Senha inválida. Use pelo menos 8 caracteres.';
+      if (m.includes('rate limit')) return 'Muitas tentativas. Aguarde alguns minutos.';
+      return 'Erro: ' + (e && e.message ? e.message : 'tente novamente.');
+    }
+
+    $('toggleSignup').addEventListener('click', () => setMode(mode === 'login' ? 'signup' : 'login'));
+    $('toggleReset').addEventListener('click', () => setMode('reset'));
+
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      clearMsg();
+      const email = $('email').value.trim();
+      const password = $('password').value;
+      const btn = $('submitBtn');
+
+      if (mode !== 'newpass' && !email) return showMsg('Informe o e-mail.', 'error');
+      if (mode !== 'reset' && password.length < 8) return showMsg('A senha precisa ter pelo menos 8 caracteres.', 'error');
+
+      btn.disabled = true;
+      try {
+        if (mode === 'login') {
+          const { data, error } = await sb.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          showLoggedIn(data.user);
+        } else if (mode === 'signup') {
+          const { data, error } = await sb.auth.signUp({
+            email, password,
+            options: { emailRedirectTo: window.location.origin + window.location.pathname }
+          });
+          if (error) throw error;
+          if (data.session) showLoggedIn(data.user);
+          else showMsg('Acesso criado. Confirme pelo link enviado ao seu e-mail e depois entre.', 'ok');
+        } else if (mode === 'reset') {
+          const { error } = await sb.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin + window.location.pathname
+          });
+          if (error) throw error;
+          showMsg('Se o e-mail estiver cadastrado, você receberá o link em instantes.', 'ok');
+        } else if (mode === 'newpass') {
+          const { data, error } = await sb.auth.updateUser({ password });
+          if (error) throw error;
+          showMsg('Senha alterada com sucesso.', 'ok');
+          showLoggedIn(data.user);
+        }
+      } catch (e) {
+        showMsg(traduzErro(e), 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    $('logoutBtn').addEventListener('click', async () => {
+      await sb.auth.signOut();
+      showLoggedOut();
+    });
+
+    // Link de recuperação de senha abre a página no modo "nova senha"
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        form.classList.remove('hidden');
+        $('welcome').classList.add('hidden');
+        setMode('newpass');
+      }
+    });
+
+    // Mantém a sessão ao recarregar a página
+    (async () => {
+      const { data } = await sb.auth.getSession();
+      if (data.session && mode !== 'newpass') showLoggedIn(data.session.user);
+    })();
+  </script>
+</body>
+</html>
