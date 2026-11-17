@@ -71,6 +71,7 @@ function opcoes(lista, valorSel, vazio) {
 // ---------------------------------------------------------------------
 // Estado
 // ---------------------------------------------------------------------
+const PALETA = ['#dc2626', '#ea580c', '#d97706', '#65a30d', '#0891b2', '#2563eb', '#7c3aed', '#c026d3', '#db2777', '#475569'];
 const st = { user: null, categorias: [], contas: [], imoveis: [], view: 'painel' };
 const mesRef = () => $('mesRef').value;
 
@@ -246,17 +247,17 @@ async function renderPainel() {
   const projetado = resultado + recPrev - despPrev - parcMesAberto;
 
   $('kpis').innerHTML = `
-    <div class="kpi"><div class="label">Receitas realizadas</div><div class="value receita">${brl(recReal)}</div>
+    <div class="kpi k-receita"><span class="ico">💰</span><div class="label">Receitas realizadas</div><div class="value receita">${brl(recReal)}</div>
       <div class="sub">+ ${brl(recPrev)} previstas</div></div>
-    <div class="kpi"><div class="label">Despesas realizadas</div><div class="value despesa">${brl(despReal)}</div>
+    <div class="kpi k-despesa"><span class="ico">💸</span><div class="label">Despesas realizadas</div><div class="value despesa">${brl(despReal)}</div>
       <div class="sub">+ ${brl(despPrev)} previstas</div></div>
-    <div class="kpi"><div class="label">Resultado do mês</div><div class="value ${resultado >= 0 ? 'receita' : 'despesa'}">${brl(resultado)}</div>
+    <div class="kpi k-resultado"><span class="ico">📊</span><div class="label">Resultado do mês</div><div class="value ${resultado >= 0 ? 'receita' : 'despesa'}">${brl(resultado)}</div>
       <div class="sub">Somente realizado</div></div>
-    <div class="kpi"><div class="label">Resultado projetado</div><div class="value ${projetado >= 0 ? 'receita' : 'despesa'}">${brl(projetado)}</div>
+    <div class="kpi k-projetado"><span class="ico">🔮</span><div class="label">Resultado projetado</div><div class="value ${projetado >= 0 ? 'receita' : 'despesa'}">${brl(projetado)}</div>
       <div class="sub">Inclui previstos e parcelas em aberto</div></div>
-    <div class="kpi"><div class="label">Parcelas do mês</div><div class="value">${brl(parcMesTotal)}</div>
+    <div class="kpi k-parcela"><span class="ico">📅</span><div class="label">Parcelas do mês</div><div class="value">${brl(parcMesTotal)}</div>
       <div class="sub ${parcMesAberto > 0 ? 'alerta' : ''}">${brl(parcMesAberto)} em aberto</div></div>
-    <div class="kpi"><div class="label">Saldo devedor total</div><div class="value despesa">${brl(saldoDevedor)}</div>
+    <div class="kpi k-divida"><span class="ico">🏦</span><div class="label">Saldo devedor total</div><div class="value">${brl(saldoDevedor)}</div>
       <div class="sub">Principal a amortizar</div></div>`;
 
   // Aluguéis por imóvel
@@ -286,7 +287,7 @@ async function renderPainel() {
   $('painelVencimentos').innerHTML = !vencimentos.length
     ? '<div class="empty">Nenhuma parcela em aberto nos próximos 30 dias.</div>'
     : `<table><thead><tr><th>Vencimento</th><th>Credor</th><th>Parcela</th><th class="num">Valor</th></tr></thead><tbody>
-      ${vencimentos.map((p) => `<tr><td class="${p.vencimento < hoje() ? 'despesa' : ''}">${fmtData(p.vencimento)}${p.vencimento < hoje() ? ' (atrasada)' : ''}</td>
+      ${vencimentos.map((p) => `<tr class="${p.vencimento < hoje() ? 'row-atrasada' : ''}"><td class="${p.vencimento < hoje() ? 'despesa' : ''}">${fmtData(p.vencimento)}${p.vencimento < hoje() ? ' (atrasada)' : ''}</td>
         <td>${esc(p.emprestimos.credor)}</td><td>${p.numero}</td><td class="num">${brl(p.valor)}</td></tr>`).join('')}
       </tbody></table>`;
 
@@ -298,21 +299,31 @@ async function renderPainel() {
   });
   const cats = Object.entries(porCat).sort((a, b) => b[1] - a[1]);
   const maxCat = cats.length ? cats[0][1] : 1;
+  const totCat = cats.reduce((s, c) => s + c[1], 0);
   $('painelCategorias').innerHTML = !cats.length ? '<div class="empty">Nenhuma despesa no mês.</div>'
-    : cats.map(([n, v]) => `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between">
-        <span>${esc(n)}</span><strong>${brl(v)}</strong></div><div class="bar"><div style="width:${(v / maxCat) * 100}%"></div></div></div>`).join('');
+    : cats.map(([n, v], i) => { const cor = PALETA[i % PALETA.length]; const pct = totCat ? Math.round(v / totCat * 100) : 0;
+        return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between">
+        <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${cor};margin-right:6px"></i>${esc(n)}</span>
+        <span><strong>${brl(v)}</strong> <span style="color:var(--muted);font-size:12px">${pct}%</span></span></div>
+        <div class="bar"><div style="width:${(v / maxCat) * 100}%;background:${cor}"></div></div></div>`; }).join('');
 
   // Histórico 6 meses
   const meses = [];
   for (let k = 5; k >= 0; k--) meses.push(somaMeses(inicio, -k).slice(0, 7));
+  const dadosHist = meses.map((m) => {
+    const doMes = hist.filter((l) => l.data.startsWith(m));
+    return { m, r: doMes.filter((l) => l.tipo === 'receita').reduce((s, l) => s + num(l.valor), 0),
+      d: doMes.filter((l) => l.tipo === 'despesa').reduce((s, l) => s + num(l.valor), 0) };
+  });
+  const maxHist = Math.max(1, ...dadosHist.map((x) => Math.max(x.r, x.d)));
   const linhasHist = meses.map((m) => {
     const doMes = hist.filter((l) => l.data.startsWith(m));
     const r = doMes.filter((l) => l.tipo === 'receita').reduce((s, l) => s + num(l.valor), 0);
     const d = doMes.filter((l) => l.tipo === 'despesa').reduce((s, l) => s + num(l.valor), 0);
-    return `<tr><td>${nomeMes(m)}</td><td class="num receita">${brl(r)}</td><td class="num despesa">${brl(d)}</td>
+    return `<tr><td>${nomeMes(m)}</td><td class="hide-mobile"><div class="hist-bars"><div class="r" style="width:${r / maxHist * 100}%"></div><div class="d" style="width:${d / maxHist * 100}%"></div></div></td><td class="num receita">${brl(r)}</td><td class="num despesa">${brl(d)}</td>
       <td class="num ${r - d >= 0 ? 'receita' : 'despesa'}">${brl(r - d)}</td></tr>`;
   }).join('');
-  $('painelHistorico').innerHTML = `<table><thead><tr><th>Mês</th><th class="num">Receitas</th><th class="num">Despesas</th>
+  $('painelHistorico').innerHTML = `<div class="legenda"><span><i style="background:var(--c-receita)"></i>Receitas</span><span><i style="background:var(--c-despesa)"></i>Despesas</span></div><table><thead><tr><th>Mês</th><th class="hide-mobile"></th><th class="num">Receitas</th><th class="num">Despesas</th>
     <th class="num">Resultado</th></tr></thead><tbody>${linhasHist}</tbody></table>`;
 }
 
@@ -410,7 +421,7 @@ async function renderLancamentos() {
   let tr = 0, td = 0;
   const linhas = lista.map((l) => {
     if (l.tipo === 'receita') tr += num(l.valor); else td += num(l.valor);
-    return `<tr>
+    return `<tr class="row-${l.tipo}">
       <td>${fmtData(l.data)}</td>
       <td>${esc(l.descricao)}${l.observacao ? `<div class="sub" style="color:var(--muted);font-size:12px">${esc(l.observacao)}</div>` : ''}</td>
       <td class="hide-mobile">${esc(l.categorias?.nome || '')}</td>
@@ -661,7 +672,7 @@ async function abrirDetalhe(id) {
   parcelasCache = await q(sb.from('parcelas_emprestimo').select('*').eq('emprestimo_id', id).order('numero'));
   $('empDetalheTitulo').textContent = `Parcelas · ${e ? e.credor : ''}`;
   const h = hoje();
-  const linhas = parcelasCache.map((p) => `<tr>
+  const linhas = parcelasCache.map((p) => `<tr class="${p.pago ? 'row-paga' : (p.vencimento < h ? 'row-atrasada' : '')}">
     <td>${p.numero}</td>
     <td class="${!p.pago && p.vencimento < h ? 'despesa' : ''}">${fmtData(p.vencimento)}</td>
     <td class="num">${brl(p.valor)}</td>
@@ -669,7 +680,7 @@ async function abrirDetalhe(id) {
     <td class="num hide-mobile">${brl(p.juros)}</td>
     <td class="num hide-mobile">${brl(p.saldo_devedor)}</td>
     <td>${p.pago ? `<span class="tag realizado">Paga ${p.data_pagamento ? fmtData(p.data_pagamento) : ''}</span>`
-      : `<span class="tag previsto">${p.vencimento < h ? 'Atrasada' : 'Em aberto'}</span>`}</td>
+      : `<span class="tag ${p.vencimento < h ? 'atrasada' : 'previsto'}">${p.vencimento < h ? 'Atrasada' : 'Em aberto'}</span>`}</td>
     <td class="actions">${p.pago ? `<button class="small" data-acao="desfazer" data-id="${p.id}">Desfazer</button>`
       : `<button class="small primary" data-acao="pagar" data-id="${p.id}">Pagar</button>`}</td></tr>`).join('');
   $('empParcelasLista').innerHTML = `<table><thead><tr><th>Nº</th><th>Vencimento</th><th class="num">Valor</th>

@@ -164,3 +164,78 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--border); }
   .form-grid .span2 { grid-column: span 1; }
   .hide-mobile { display: none; }
 }
+
+/* =====================================================================
+   CORES (visualização)
+   ===================================================================== */
+:root {
+  --c-receita: #16a34a;   --c-receita-bg: #ecfdf3;
+  --c-despesa: #dc2626;   --c-despesa-bg: #fef2f2;
+  --c-resultado: #2563eb; --c-resultado-bg: #eff6ff;
+  --c-projetado: #7c3aed; --c-projetado-bg: #f5f3ff;
+  --c-parcela: #d97706;   --c-parcela-bg: #fffbeb;
+  --c-divida: #9f1239;    --c-divida-bg: #fff1f2;
+}
+
+/* Cabeçalho */
+header { background: linear-gradient(90deg, #0b5d57, #0f766e); border-bottom: none; }
+header .brand { color: #fff; }
+header .brand span { color: #99f6e4; }
+nav button { color: #ccfbf1; }
+nav button:hover { background: rgba(255, 255, 255, 0.12); }
+nav button.active { color: #0b5d57; background: #fff; }
+.user-email { color: #ccfbf1; }
+header .header-right button { background: transparent; color: #fff; border-color: rgba(255, 255, 255, 0.5); }
+header .header-right button:hover { background: rgba(255, 255, 255, 0.15); }
+header input[type=month] { border-color: transparent; }
+
+/* Indicadores */
+.kpi { border-left: 5px solid var(--border); position: relative; }
+.kpi .ico { position: absolute; right: 14px; top: 12px; font-size: 20px; opacity: 0.85; }
+.kpi.k-receita   { border-left-color: var(--c-receita);   background: var(--c-receita-bg); }
+.kpi.k-despesa   { border-left-color: var(--c-despesa);   background: var(--c-despesa-bg); }
+.kpi.k-resultado { border-left-color: var(--c-resultado); background: var(--c-resultado-bg); }
+.kpi.k-projetado { border-left-color: var(--c-projetado); background: var(--c-projetado-bg); }
+.kpi.k-parcela   { border-left-color: var(--c-parcela);   background: var(--c-parcela-bg); }
+.kpi.k-divida    { border-left-color: var(--c-divida);    background: var(--c-divida-bg); }
+.kpi.k-parcela .value { color: var(--c-parcela); }
+.kpi.k-divida .value { color: var(--c-divida); }
+
+/* Painéis com faixa colorida no título */
+.panel { border-top: 4px solid var(--primary); }
+.panel.p-receita   { border-top-color: var(--c-receita); }
+.panel.p-despesa   { border-top-color: var(--c-despesa); }
+.panel.p-resultado { border-top-color: var(--c-resultado); }
+.panel.p-projetado { border-top-color: var(--c-projetado); }
+.panel.p-parcela   { border-top-color: var(--c-parcela); }
+.panel.p-divida    { border-top-color: var(--c-divida); }
+
+/* Tabelas */
+thead th { background: #f8fafc; }
+tbody tr:nth-child(even) td { background: #fafbfc; }
+tbody tr:hover td { background: #f0fdfa; }
+tr.row-receita td:first-child { box-shadow: inset 4px 0 0 var(--c-receita); }
+tr.row-despesa td:first-child { box-shadow: inset 4px 0 0 var(--c-despesa); }
+tr.row-atrasada td { background: #fef2f2 !important; }
+tr.row-paga td { color: var(--muted); }
+tfoot td { background: #f1f5f9; }
+
+/* Etiquetas */
+.tag.atrasada { background: #fee2e2; color: var(--c-despesa); }
+.tag.tipo-receita { background: var(--c-receita-bg); color: var(--c-receita); }
+.tag.tipo-despesa { background: var(--c-despesa-bg); color: var(--c-despesa); }
+
+/* Barras */
+.bar { height: 10px; }
+.hist-bars { display: flex; flex-direction: column; gap: 3px; min-width: 120px; }
+.hist-bars div { height: 7px; border-radius: 4px; }
+.hist-bars .r { background: var(--c-receita); }
+.hist-bars .d { background: var(--c-despesa); }
+.legenda { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+/* Botões */
+button.primary { box-shadow: 0 1px 2px rgba(15, 118, 110, 0.3); }
+button.danger { border-color: #fecaca; }
+button.danger:hover { background: var(--c-despesa-bg); }
+.kpi .label { padding-right: 28px; }
