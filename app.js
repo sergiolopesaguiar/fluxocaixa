@@ -79,7 +79,7 @@ async function carregarCadastros() {
   const [cats, contas, imoveis] = await Promise.all([
     q(sb.from('categorias').select('*').order('tipo').order('nome')),
     q(sb.from('contas').select('*').order('nome')),
-    q(sb.from('imoveis').select('*').order('nome')),
+    q(sb.from('imoveis').select('*').order('codigo')),
   ]);
   st.categorias = cats; st.contas = contas; st.imoveis = imoveis;
 }
@@ -275,7 +275,7 @@ async function renderPainel() {
       tb += bruto; tt += custos;
       const sit = !recs.length ? '<span class="tag inativo">Não lançado</span>'
         : pendente ? '<span class="tag previsto">A receber</span>' : '<span class="tag realizado">Recebido</span>';
-      return `<tr><td>${esc(im.nome)}</td><td class="num">${brl(bruto)}</td><td class="num despesa">${brl(custos)}</td>
+      return `<tr><td><strong style="color:var(--primary)">${im.codigo}</strong> · ${esc(im.nome)}</td><td class="num">${brl(bruto)}</td><td class="num despesa">${brl(custos)}</td>
         <td class="num">${brl(bruto - custos)}</td><td>${sit}</td></tr>`;
     }).join('');
     $('painelImoveis').innerHTML = `<table><thead><tr><th>Imóvel</th><th class="num">Bruto</th><th class="num">Custos</th>
@@ -369,7 +369,7 @@ function preencherSelects() {
   const selConta = $('lancConta').value;
   $('lancConta').innerHTML = opcoes(st.contas.filter((c) => c.ativo), selConta || contaPadrao()?.id, 'Sem conta');
   const selIm = $('lancImovel').value;
-  $('lancImovel').innerHTML = opcoes(st.imoveis, selIm, 'Nenhum');
+  $('lancImovel').innerHTML = opcoes(st.imoveis.map((i) => ({ id: i.id, nome: `${i.codigo} · ${i.nome}` })), selIm, 'Nenhum');
 }
 $('lancTipo').addEventListener('change', preencherSelects);
 
@@ -515,6 +515,7 @@ function renderImoveis() {
     const taxa = round2(num(im.valor_aluguel) * num(im.taxa_administracao_pct) / 100);
     if (im.ativo) { total += num(im.valor_aluguel); liquido += num(im.valor_aluguel) - taxa; }
     return `<tr>
+      <td class="num" style="text-align:center;font-weight:700;color:var(--primary)">${im.codigo ?? ''}</td>
       <td>${esc(im.nome)}${im.endereco ? `<div style="color:var(--muted);font-size:12px">${esc(im.endereco)}</div>` : ''}</td>
       <td class="hide-mobile">${esc(im.inquilino || '')}</td>
       <td class="num">${brl(im.valor_aluguel)}</td>
@@ -525,9 +526,9 @@ function renderImoveis() {
       <td class="actions"><button class="small" data-acao="editar" data-id="${im.id}">Editar</button>
         <button class="small danger" data-acao="excluir" data-id="${im.id}">Excluir</button></td></tr>`;
   }).join('');
-  $('imovLista').innerHTML = `<table><thead><tr><th>Imóvel</th><th class="hide-mobile">Inquilino</th><th class="num">Aluguel</th>
+  $('imovLista').innerHTML = `<table><thead><tr><th style="text-align:center">ID</th><th>Imóvel</th><th class="hide-mobile">Inquilino</th><th class="num">Aluguel</th>
     <th class="num hide-mobile">Taxa adm.</th><th class="num">Líquido</th><th class="hide-mobile">Vencimento</th><th>Situação</th><th></th></tr></thead>
-    <tbody>${linhas}</tbody><tfoot><tr><td colspan="2">Total mensal (ativos)</td><td class="num">${brl(total)}</td>
+    <tbody>${linhas}</tbody><tfoot><tr><td colspan="3">Total mensal (ativos)</td><td class="num">${brl(total)}</td>
     <td class="hide-mobile"></td><td class="num">${brl(liquido)}</td><td colspan="3"></td></tr></tfoot></table>`;
 }
 
@@ -538,6 +539,7 @@ $('imovLista').addEventListener('click', async (ev) => {
   if (!im) return;
   if (b.dataset.acao === 'editar') {
     $('imovId').value = im.id;
+    $('imovCodigo').value = im.codigo ?? '';
     $('imovNome').value = im.nome;
     $('imovEndereco').value = im.endereco || '';
     $('imovInquilino').value = im.inquilino || '';
