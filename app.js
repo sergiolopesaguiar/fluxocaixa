@@ -75,6 +75,33 @@ const PALETA = ['#dc2626', '#ea580c', '#d97706', '#65a30d', '#0891b2', '#2563eb'
 const SITUACOES = { alugado: 'Alugado', vago: 'Vago', reforma: 'Em reforma', uso_proprio: 'Uso próprio' };
 const TIPOS_IMOVEL = { casa: 'Casa', apartamento: 'Apartamento', sala_comercial: 'Sala comercial', loja: 'Loja', galpao: 'Galpão', terreno: 'Terreno', outro: 'Outro' };
 const alugados = () => st.imoveis.filter((i) => i.ativo && i.situacao_locacao === 'alugado');
+// ---------------------------------------------------------------------
+// Responsivo: cada célula recebe o nome da coluna, usado no celular
+// para exibir as tabelas como cartões (rótulo à esquerda, valor à direita)
+// ---------------------------------------------------------------------
+function rotularTabelas(raiz = document) {
+  raiz.querySelectorAll('main table:not(.resp)').forEach((t) => {
+    const nomes = [...t.querySelectorAll('thead th')].map((th) => th.textContent.trim());
+    t.querySelectorAll('tbody tr, tfoot tr').forEach((tr) => {
+      let col = 0;
+      [...tr.children].forEach((td) => {
+        if (!td.hasAttribute('data-label')) td.setAttribute('data-label', nomes[col] || '');
+        // agrupa o conteúdo da célula para ele ficar inteiro do lado direito no cartão
+        if (td.childNodes.length && !td.querySelector(':scope > .cv')) {
+          const cv = document.createElement('div');
+          cv.className = 'cv';
+          while (td.firstChild) cv.appendChild(td.firstChild);
+          td.appendChild(cv);
+        }
+        col += Number(td.getAttribute('colspan') || 1);
+      });
+    });
+    t.querySelectorAll('tfoot td:first-child').forEach((td) => td.setAttribute('data-label', ''));
+    t.classList.add('resp');
+  });
+}
+new MutationObserver(() => rotularTabelas()).observe(document.body, { childList: true, subtree: true });
+
 const st = { user: null, categorias: [], contas: [], imoveis: [], view: 'painel' };
 const mesRef = () => $('mesRef').value;
 
