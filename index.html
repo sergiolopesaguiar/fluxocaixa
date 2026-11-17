@@ -121,17 +121,45 @@
           <h3 id="imovFormTitulo">Novo imóvel</h3>
           <form id="imovForm">
             <input type="hidden" id="imovId">
+            <div class="secao-titulo">Dados do imóvel</div>
             <div class="form-grid">
               <div><label>ID</label><input id="imovCodigo" readonly placeholder="Automático" style="background:#f1f5f9;color:var(--muted)" title="Gerado automaticamente ao salvar"></div>
               <div class="span2"><label>Nome / apelido</label><input id="imovNome" required maxlength="120"></div>
-              <div class="span2"><label>Endereço</label><input id="imovEndereco" maxlength="250"></div>
-              <div><label>Inquilino</label><input id="imovInquilino" maxlength="120"></div>
-              <div><label>Aluguel (R$)</label><input type="number" id="imovAluguel" step="0.01" min="0" required></div>
-              <div><label>Taxa administração (%)</label><input type="number" id="imovTaxa" step="0.01" min="0" max="100" value="0"></div>
-              <div><label>Dia do vencimento</label><input type="number" id="imovDia" min="1" max="31"></div>
-              <div><label>Situação</label>
-                <select id="imovAtivo"><option value="true">Ativo</option><option value="false">Inativo</option></select>
+              <div><label>Tipo</label>
+                <select id="imovTipo">
+                  <option value="">Não informado</option><option value="casa">Casa</option><option value="apartamento">Apartamento</option>
+                  <option value="sala_comercial">Sala comercial</option><option value="loja">Loja</option><option value="galpao">Galpão</option>
+                  <option value="terreno">Terreno</option><option value="outro">Outro</option>
+                </select>
               </div>
+              <div class="span2"><label>Endereço</label><input id="imovEndereco" maxlength="250"></div>
+              <div><label>Cadastro</label>
+                <select id="imovAtivo"><option value="true">Ativo</option><option value="false">Inativo (vendido / desativado)</option></select>
+              </div>
+            </div>
+
+            <div class="secao-titulo">Locação</div>
+            <div class="form-grid">
+              <div><label>Situação</label>
+                <select id="imovSituacao">
+                  <option value="alugado">Alugado</option><option value="vago">Vago</option>
+                  <option value="reforma">Em reforma</option><option value="uso_proprio">Uso próprio</option>
+                </select>
+              </div>
+              <div><label>Aluguel (R$)</label><input type="number" id="imovAluguel" step="0.01" min="0"></div>
+              <div><label>Dia do vencimento</label><input type="number" id="imovDia" min="1" max="31"></div>
+              <div><label>Imobiliária</label><input id="imovImobiliaria" maxlength="120" placeholder="Em branco = administração própria"></div>
+              <div><label>Taxa administração (%)</label><input type="number" id="imovTaxa" step="0.01" min="0" max="100" value="0"></div>
+            </div>
+            <div class="form-grid" id="imovBlocoInquilino">
+              <div class="span2"><label>Inquilino</label><input id="imovInquilino" maxlength="120"></div>
+              <div><label>Telefone</label><input id="imovTelefone" maxlength="30" type="tel"></div>
+              <div><label>E-mail</label><input id="imovEmail" maxlength="120" type="email"></div>
+              <div><label>Início do contrato</label><input type="date" id="imovInicio"></div>
+              <div><label>Fim do contrato</label><input type="date" id="imovFim"></div>
+            </div>
+            <div class="form-grid">
+              <div class="span2" style="grid-column:1/-1"><label>Observação</label><input id="imovObs" maxlength="500"></div>
             </div>
             <div class="form-actions">
               <button type="submit" class="primary">Salvar</button>
@@ -140,7 +168,7 @@
           </form>
         </div>
         <div class="panel p-receita">
-          <h3>Imóveis cadastrados</h3>
+          <h3>Imóveis cadastrados <span id="imovResumo" style="font-weight:400;font-size:13px"></span></h3>
           <div id="imovLista"></div>
         </div>
       </section>

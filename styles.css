@@ -239,3 +239,12 @@ button.primary { box-shadow: 0 1px 2px rgba(15, 118, 110, 0.3); }
 button.danger { border-color: #fecaca; }
 button.danger:hover { background: var(--c-despesa-bg); }
 .kpi .label { padding-right: 28px; }
+
+.secao-titulo { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--primary);
+  margin: 14px 0 2px; padding-bottom: 4px; border-bottom: 1px dashed var(--border); }
+.secao-titulo:first-of-type { margin-top: 0; }
+.tag.sit-alugado { background: var(--c-receita-bg); color: var(--c-receita); }
+.tag.sit-vago { background: #fff7ed; color: #c2410c; }
+.tag.sit-reforma { background: #eff6ff; color: #1d4ed8; }
+.tag.sit-uso_proprio { background: #f5f3ff; color: #6d28d9; }
+.contato { color: var(--muted); font-size: 12px; }

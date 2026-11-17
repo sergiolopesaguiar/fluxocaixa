@@ -72,6 +72,9 @@ function opcoes(lista, valorSel, vazio) {
 // Estado
 // ---------------------------------------------------------------------
 const PALETA = ['#dc2626', '#ea580c', '#d97706', '#65a30d', '#0891b2', '#2563eb', '#7c3aed', '#c026d3', '#db2777', '#475569'];
+const SITUACOES = { alugado: 'Alugado', vago: 'Vago', reforma: 'Em reforma', uso_proprio: 'Uso próprio' };
+const TIPOS_IMOVEL = { casa: 'Casa', apartamento: 'Apartamento', sala_comercial: 'Sala comercial', loja: 'Loja', galpao: 'Galpão', terreno: 'Terreno', outro: 'Outro' };
+const alugados = () => st.imoveis.filter((i) => i.ativo && i.situacao_locacao === 'alugado');
 const st = { user: null, categorias: [], contas: [], imoveis: [], view: 'painel' };
 const mesRef = () => $('mesRef').value;
 
@@ -261,9 +264,10 @@ async function renderPainel() {
       <div class="sub">Principal a amortizar</div></div>`;
 
   // Aluguéis por imóvel
-  const ativos = st.imoveis.filter((i) => i.ativo);
+  const ativos = alugados();
+  const vagos = st.imoveis.filter((i) => i.ativo && i.situacao_locacao !== 'alugado');
   if (!ativos.length) {
-    $('painelImoveis').innerHTML = '<div class="empty">Nenhum imóvel cadastrado. Cadastre na aba Imóveis.</div>';
+    $('painelImoveis').innerHTML = '<div class="empty">Nenhum imóvel alugado. Cadastre na aba Imóveis.</div>';
   } else {
     let tb = 0, tt = 0;
     const linhas = ativos.map((im) => {
@@ -280,7 +284,8 @@ async function renderPainel() {
     }).join('');
     $('painelImoveis').innerHTML = `<table><thead><tr><th>Imóvel</th><th class="num">Bruto</th><th class="num">Custos</th>
       <th class="num">Líquido</th><th>Situação</th></tr></thead><tbody>${linhas}</tbody>
-      <tfoot><tr><td>Total</td><td class="num">${brl(tb)}</td><td class="num despesa">${brl(tt)}</td><td class="num">${brl(tb - tt)}</td><td></td></tr></tfoot></table>`;
+      <tfoot><tr><td>Total</td><td class="num">${brl(tb)}</td><td class="num despesa">${brl(tt)}</td><td class="num">${brl(tb - tt)}</td><td></td></tr></tfoot></table>`
+      + (vagos.length ? `<div class="contato" style="margin-top:8px">Sem aluguel: ${vagos.map((v) => `${v.codigo} · ${esc(v.nome)} (${SITUACOES[v.situacao_locacao]})`).join(', ')}</div>` : '');
   }
 
   // Vencimentos
@@ -331,8 +336,8 @@ async function renderPainel() {
 $('btnLancarAlugueis').onclick = async () => {
   const ym = mesRef();
   const { inicio, fim } = intervaloMes(ym);
-  const ativos = st.imoveis.filter((i) => i.ativo && num(i.valor_aluguel) > 0);
-  if (!ativos.length) return toast('Cadastre imóveis com valor de aluguel primeiro.', 'error');
+  const ativos = alugados().filter((i) => num(i.valor_aluguel) > 0);
+  if (!ativos.length) return toast('Nenhum imóvel alugado com valor de aluguel cadastrado.', 'error');
   try {
     const existentes = await q(sb.from('lancamentos').select('imovel_id').eq('tipo', 'receita')
       .not('imovel_id', 'is', null).gte('data', inicio).lt('data', fim));
@@ -346,7 +351,7 @@ $('btnLancarAlugueis').onclick = async () => {
       if (jaLancados.has(im.id)) continue;
       const dia = Math.min(im.dia_vencimento || 10, diasNoMes(y, m));
       const data = `${ym}-${pad(dia)}`;
-      novos.push({ data, tipo: 'receita', valor: num(im.valor_aluguel), situacao: 'previsto', descricao: `Aluguel ${im.nome}`,
+      novos.push({ data, tipo: 'receita', valor: num(im.valor_aluguel), situacao: 'previsto', descricao: `Aluguel ${im.nome}${im.inquilino ? ' · ' + im.inquilino : ''}`,
         categoria_id: catAluguel?.id || null, conta_id: conta?.id || null, imovel_id: im.id });
       const taxa = round2(num(im.valor_aluguel) * num(im.taxa_administracao_pct) / 100);
       if (taxa > 0) novos.push({ data, tipo: 'despesa', valor: taxa, situacao: 'previsto', descricao: `Taxa de administração ${im.nome}`,
@@ -477,8 +482,13 @@ $('lancLista').addEventListener('click', async (ev) => {
 // =====================================================================
 // IMÓVEIS
 // =====================================================================
+function atualizarBlocoInquilino() {
+  $('imovBlocoInquilino').classList.toggle('hidden', $('imovSituacao').value !== 'alugado');
+}
+$('imovSituacao').addEventListener('change', atualizarBlocoInquilino);
 function limparImovForm() {
   $('imovForm').reset();
+  setTimeout(atualizarBlocoInquilino);
   $('imovId').value = '';
   $('imovFormTitulo').textContent = 'Novo imóvel';
   $('imovCancelar').classList.add('hidden');
@@ -487,16 +497,30 @@ $('imovCancelar').onclick = limparImovForm;
 
 $('imovForm').addEventListener('submit', async (ev) => {
   ev.preventDefault();
+  const alugado = $('imovSituacao').value === 'alugado';
+  const txt = (id) => $(id).value.trim() || null;
   const reg = {
     nome: $('imovNome').value.trim(),
-    endereco: $('imovEndereco').value.trim() || null,
-    inquilino: $('imovInquilino').value.trim() || null,
-    valor_aluguel: round2(num($('imovAluguel').value)),
-    taxa_administracao_pct: num($('imovTaxa').value),
-    dia_vencimento: $('imovDia').value ? Number($('imovDia').value) : null,
+    tipo: $('imovTipo').value || null,
+    endereco: txt('imovEndereco'),
     ativo: $('imovAtivo').value === 'true',
+    situacao_locacao: $('imovSituacao').value,
+    valor_aluguel: round2(num($('imovAluguel').value)),
+    dia_vencimento: $('imovDia').value ? Number($('imovDia').value) : null,
+    imobiliaria: txt('imovImobiliaria'),
+    taxa_administracao_pct: num($('imovTaxa').value),
+    // dados do inquilino só valem para imóvel alugado
+    inquilino: alugado ? txt('imovInquilino') : null,
+    inquilino_telefone: alugado ? txt('imovTelefone') : null,
+    inquilino_email: alugado ? txt('imovEmail') : null,
+    contrato_inicio: alugado ? ($('imovInicio').value || null) : null,
+    contrato_fim: alugado ? ($('imovFim').value || null) : null,
+    observacao: txt('imovObs'),
   };
   if (!reg.nome) return toast('Informe o nome do imóvel.', 'error');
+  if (alugado && !reg.inquilino) return toast('Informe o inquilino do imóvel alugado.', 'error');
+  if (alugado && reg.valor_aluguel <= 0) return toast('Informe o valor do aluguel.', 'error');
+  if (reg.contrato_inicio && reg.contrato_fim && reg.contrato_fim < reg.contrato_inicio) return toast('O fim do contrato é anterior ao início.', 'error');
   try {
     const id = $('imovId').value;
     if (id) await q(sb.from('imoveis').update(reg).eq('id', id));
@@ -509,27 +533,46 @@ $('imovForm').addEventListener('submit', async (ev) => {
 });
 
 function renderImoveis() {
+  atualizarBlocoInquilino();
+  const ativos = st.imoveis.filter((i) => i.ativo);
+  const cont = (sit) => ativos.filter((i) => i.situacao_locacao === sit).length;
+  $('imovResumo').innerHTML = ativos.length
+    ? `<span class="tag sit-alugado">${cont('alugado')} alugado(s)</span> <span class="tag sit-vago">${cont('vago')} vago(s)</span>`
+      + (cont('reforma') ? ` <span class="tag sit-reforma">${cont('reforma')} em reforma</span>` : '')
+      + (cont('uso_proprio') ? ` <span class="tag sit-uso_proprio">${cont('uso_proprio')} uso próprio</span>` : '')
+    : '';
   if (!st.imoveis.length) { $('imovLista').innerHTML = '<div class="empty">Nenhum imóvel cadastrado.</div>'; return; }
+  const h = hoje(), em60 = somaMeses(h, 2);
   let total = 0, liquido = 0;
   const linhas = st.imoveis.map((im) => {
+    const alug = im.situacao_locacao === 'alugado';
     const taxa = round2(num(im.valor_aluguel) * num(im.taxa_administracao_pct) / 100);
-    if (im.ativo) { total += num(im.valor_aluguel); liquido += num(im.valor_aluguel) - taxa; }
-    return `<tr>
+    if (im.ativo && alug) { total += num(im.valor_aluguel); liquido += num(im.valor_aluguel) - taxa; }
+    let contrato = '';
+    if (alug && (im.contrato_inicio || im.contrato_fim)) {
+      const vencido = im.contrato_fim && im.contrato_fim < h;
+      const vencendo = im.contrato_fim && !vencido && im.contrato_fim <= em60;
+      contrato = `<div class="contato">${im.contrato_inicio ? fmtData(im.contrato_inicio) : '?'} a ${im.contrato_fim ? fmtData(im.contrato_fim) : 'indeterminado'}
+        ${vencido ? ' <span class="tag atrasada">Contrato vencido</span>' : vencendo ? ' <span class="tag previsto">Vence em breve</span>' : ''}</div>`;
+    }
+    const contatos = [im.inquilino_telefone, im.inquilino_email].filter(Boolean).map(esc).join(' · ');
+    const inquilino = alug
+      ? `<strong>${esc(im.inquilino || 'Não informado')}</strong>${contatos ? `<div class="contato">${contatos}</div>` : ''}${contrato}`
+      : '<span style="color:var(--muted)">-</span>';
+    return `<tr class="${im.ativo ? '' : 'row-paga'}">
       <td class="num" style="text-align:center;font-weight:700;color:var(--primary)">${im.codigo ?? ''}</td>
-      <td>${esc(im.nome)}${im.endereco ? `<div style="color:var(--muted);font-size:12px">${esc(im.endereco)}</div>` : ''}</td>
-      <td class="hide-mobile">${esc(im.inquilino || '')}</td>
-      <td class="num">${brl(im.valor_aluguel)}</td>
-      <td class="num hide-mobile">${num(im.taxa_administracao_pct).toLocaleString('pt-BR')}%</td>
-      <td class="num">${brl(num(im.valor_aluguel) - taxa)}</td>
-      <td class="hide-mobile">${im.dia_vencimento ? 'Dia ' + im.dia_vencimento : ''}</td>
-      <td>${im.ativo ? '<span class="tag realizado">Ativo</span>' : '<span class="tag inativo">Inativo</span>'}</td>
+      <td>${esc(im.nome)}<div class="contato">${[TIPOS_IMOVEL[im.tipo], im.endereco].filter(Boolean).map(esc).join(' · ')}</div></td>
+      <td>${im.ativo ? `<span class="tag sit-${im.situacao_locacao}">${SITUACOES[im.situacao_locacao]}</span>` : '<span class="tag inativo">Inativo</span>'}</td>
+      <td>${inquilino}</td>
+      <td class="num">${alug ? brl(im.valor_aluguel) : '-'}${alug && im.dia_vencimento ? `<div class="contato">dia ${im.dia_vencimento}</div>` : ''}</td>
+      <td class="num hide-mobile">${alug ? brl(num(im.valor_aluguel) - taxa) : '-'}${alug && im.imobiliaria ? `<div class="contato">${esc(im.imobiliaria)} ${num(im.taxa_administracao_pct).toLocaleString('pt-BR')}%</div>` : ''}</td>
       <td class="actions"><button class="small" data-acao="editar" data-id="${im.id}">Editar</button>
         <button class="small danger" data-acao="excluir" data-id="${im.id}">Excluir</button></td></tr>`;
   }).join('');
-  $('imovLista').innerHTML = `<table><thead><tr><th style="text-align:center">ID</th><th>Imóvel</th><th class="hide-mobile">Inquilino</th><th class="num">Aluguel</th>
-    <th class="num hide-mobile">Taxa adm.</th><th class="num">Líquido</th><th class="hide-mobile">Vencimento</th><th>Situação</th><th></th></tr></thead>
-    <tbody>${linhas}</tbody><tfoot><tr><td colspan="3">Total mensal (ativos)</td><td class="num">${brl(total)}</td>
-    <td class="hide-mobile"></td><td class="num">${brl(liquido)}</td><td colspan="3"></td></tr></tfoot></table>`;
+  $('imovLista').innerHTML = `<table><thead><tr><th style="text-align:center">ID</th><th>Imóvel</th><th>Situação</th><th>Inquilino</th>
+    <th class="num">Aluguel</th><th class="num hide-mobile">Líquido</th><th></th></tr></thead>
+    <tbody>${linhas}</tbody><tfoot><tr><td colspan="4">Total mensal (imóveis alugados)</td><td class="num">${brl(total)}</td>
+    <td class="num hide-mobile">${brl(liquido)}</td><td></td></tr></tfoot></table>`;
 }
 
 $('imovLista').addEventListener('click', async (ev) => {
@@ -541,12 +584,21 @@ $('imovLista').addEventListener('click', async (ev) => {
     $('imovId').value = im.id;
     $('imovCodigo').value = im.codigo ?? '';
     $('imovNome').value = im.nome;
+    $('imovTipo').value = im.tipo || '';
     $('imovEndereco').value = im.endereco || '';
-    $('imovInquilino').value = im.inquilino || '';
-    $('imovAluguel').value = im.valor_aluguel;
-    $('imovTaxa').value = im.taxa_administracao_pct;
-    $('imovDia').value = im.dia_vencimento || '';
     $('imovAtivo').value = String(im.ativo);
+    $('imovSituacao').value = im.situacao_locacao || 'vago';
+    $('imovAluguel').value = im.valor_aluguel;
+    $('imovDia').value = im.dia_vencimento || '';
+    $('imovImobiliaria').value = im.imobiliaria || '';
+    $('imovTaxa').value = im.taxa_administracao_pct;
+    $('imovInquilino').value = im.inquilino || '';
+    $('imovTelefone').value = im.inquilino_telefone || '';
+    $('imovEmail').value = im.inquilino_email || '';
+    $('imovInicio').value = im.contrato_inicio || '';
+    $('imovFim').value = im.contrato_fim || '';
+    $('imovObs').value = im.observacao || '';
+    atualizarBlocoInquilino();
     $('imovFormTitulo').textContent = 'Editar imóvel';
     $('imovCancelar').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
